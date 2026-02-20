@@ -5,9 +5,13 @@ import { PageHeader } from '@/components/wms/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { ArrowLeft, Upload } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import * as crud from '@/services/crudService';
 
 export default function AddProduct() {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({
     name: '',
     sku: '',
@@ -23,6 +27,25 @@ export default function AddProduct() {
   });
 
   const handleChange = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await crud.createProduct({
+        name: form.name,
+        sku: form.sku,
+        category: form.category || 'Uncategorized',
+        purchasePrice: Number(form.purchasePrice) || 0,
+        salePrice: Number(form.salePrice) || 0,
+        status: 'Active',
+      });
+      toast({ title: 'Product created' });
+      navigate('/inventory');
+    } catch {
+      toast({ title: 'Error creating product', variant: 'destructive' });
+    }
+    setIsSaving(false);
+  };
 
   return (
     <WMSLayout>
@@ -106,7 +129,9 @@ export default function AddProduct() {
           {/* Actions */}
           <div className="flex items-center justify-end gap-3">
             <Button variant="outline" onClick={() => navigate('/inventory')}>Cancel</Button>
-            <Button>Save Product</Button>
+            <Button onClick={handleSave} disabled={isSaving}>
+              {isSaving ? 'Saving...' : 'Save Product'}
+            </Button>
           </div>
         </div>
       </div>

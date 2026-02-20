@@ -1,12 +1,17 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
+import type { Warehouse } from '@/types/wms';
 
 interface CreateWarehouseModalProps {
   onClose: () => void;
+  onSave: (data: Partial<Warehouse>) => void;
+  initialData?: Warehouse | null;
+  isSaving?: boolean;
 }
 
-export function CreateWarehouseModal({ onClose }: CreateWarehouseModalProps) {
+export function CreateWarehouseModal({ onClose, onSave, initialData, isSaving }: CreateWarehouseModalProps) {
+  const isEdit = !!initialData;
   const [form, setForm] = useState({
     code: '', name: '', type: '',
     contact: '', phone: '', email: '',
@@ -16,15 +21,44 @@ export function CreateWarehouseModal({ onClose }: CreateWarehouseModalProps) {
     lat: '', lng: '',
   });
 
+  useEffect(() => {
+    if (initialData) {
+      setForm(f => ({
+        ...f,
+        code: initialData.code || '',
+        name: initialData.name || '',
+        type: initialData.type || '',
+        contact: initialData.contact || '',
+        phone: initialData.phone || '',
+        email: initialData.email || '',
+        maxWeight: String(initialData.capacity || '10000'),
+        maxVolume: String(initialData.volume || '5000'),
+      }));
+    }
+  }, [initialData]);
+
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = () => {
+    onSave({
+      code: form.code,
+      name: form.name,
+      type: form.type,
+      contact: form.contact,
+      phone: form.phone,
+      email: form.email,
+      capacity: Number(form.maxWeight),
+      volume: Number(form.maxVolume),
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card rounded-xl shadow-2xl w-full max-w-xl border border-border max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-card">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Create New Warehouse</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Register a new physical facility in the global network.</p>
+            <h2 className="text-lg font-bold text-foreground">{isEdit ? 'Edit Warehouse' : 'Create New Warehouse'}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{isEdit ? 'Update warehouse details.' : 'Register a new physical facility in the global network.'}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-md transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
@@ -129,7 +163,9 @@ export function CreateWarehouseModal({ onClose }: CreateWarehouseModalProps) {
 
         <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={onClose}>Save Warehouse</Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Saving...' : isEdit ? 'Update Warehouse' : 'Save Warehouse'}
+          </Button>
         </div>
       </div>
     </div>

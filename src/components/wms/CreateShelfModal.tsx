@@ -1,26 +1,55 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
-import { racks } from '@/data/mockData';
+import type { Shelf, Rack } from '@/types/wms';
 
 interface CreateShelfModalProps {
   onClose: () => void;
+  onSave: (data: Partial<Shelf>) => void;
+  initialData?: Shelf | null;
+  isSaving?: boolean;
+  racks?: Rack[];
 }
 
-export function CreateShelfModal({ onClose }: CreateShelfModalProps) {
+export function CreateShelfModal({ onClose, onSave, initialData, isSaving, racks = [] }: CreateShelfModalProps) {
+  const isEdit = !!initialData;
   const [form, setForm] = useState({
     rack: '', code: '', levelNumber: '1', pickSequence: '10',
     maxWeight: '500.00', maxVolume: '2.50', description: '',
   });
+
+  useEffect(() => {
+    if (initialData) {
+      setForm(f => ({
+        ...f,
+        rack: initialData.rackCode || '',
+        code: initialData.code || '',
+        levelNumber: String(initialData.levelNumber || 1),
+        pickSequence: String(initialData.pickSequence || 10),
+        maxWeight: String(initialData.maxWeight || 500),
+      }));
+    }
+  }, [initialData]);
+
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = () => {
+    onSave({
+      rackCode: form.rack,
+      code: form.code,
+      levelNumber: Number(form.levelNumber),
+      pickSequence: Number(form.pickSequence),
+      maxWeight: Number(form.maxWeight),
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg border border-border">
         <div className="flex items-center justify-between p-6 border-b border-border">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Create New Shelf</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Configure a new shelf unit within an existing rack infrastructure.</p>
+            <h2 className="text-lg font-bold text-foreground">{isEdit ? 'Edit Shelf' : 'Create New Shelf'}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{isEdit ? 'Update shelf configuration.' : 'Configure a new shelf unit within an existing rack infrastructure.'}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-md transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
@@ -95,8 +124,10 @@ export function CreateShelfModal({ onClose }: CreateShelfModalProps) {
         </div>
 
         <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
-          <Button variant="outline" onClick={onClose}>Discard Changes</Button>
-          <Button onClick={onClose}>Create Shelf</Button>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Saving...' : isEdit ? 'Update Shelf' : 'Create Shelf'}
+          </Button>
         </div>
       </div>
     </div>

@@ -1,13 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
-import { warehouses } from '@/data/mockData';
+import type { Zone, Warehouse } from '@/types/wms';
 
 interface CreateZoneModalProps {
   onClose: () => void;
+  onSave: (data: Partial<Zone>) => void;
+  initialData?: Zone | null;
+  isSaving?: boolean;
+  warehouses?: Warehouse[];
 }
 
-export function CreateZoneModal({ onClose }: CreateZoneModalProps) {
+export function CreateZoneModal({ onClose, onSave, initialData, isSaving, warehouses = [] }: CreateZoneModalProps) {
+  const isEdit = !!initialData;
   const [form, setForm] = useState({
     warehouse: '', name: '', type: 'STORAGE',
     pickPriority: '1', putAwayPriority: '1',
@@ -16,15 +21,38 @@ export function CreateZoneModal({ onClose }: CreateZoneModalProps) {
     hazardous: false, restrictedAccess: false, hazardClass: 'None',
   });
 
+  useEffect(() => {
+    if (initialData) {
+      setForm(f => ({
+        ...f,
+        warehouse: initialData.warehouseCode || '',
+        name: initialData.name || '',
+        type: initialData.type || 'STORAGE',
+        pickPriority: String(initialData.pickPriority || 1),
+        putAwayPriority: String(initialData.putAwayPriority || 1),
+      }));
+    }
+  }, [initialData]);
+
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = () => {
+    onSave({
+      warehouseCode: form.warehouse,
+      name: form.name,
+      type: form.type,
+      pickPriority: Number(form.pickPriority),
+      putAwayPriority: Number(form.putAwayPriority),
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card rounded-xl shadow-2xl w-full max-w-xl border border-border max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-card">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Create New Zone</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Define a new operational area within your warehouse infrastructure.</p>
+            <h2 className="text-lg font-bold text-foreground">{isEdit ? 'Edit Zone' : 'Create New Zone'}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{isEdit ? 'Update zone configuration.' : 'Define a new operational area within your warehouse infrastructure.'}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-md transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
@@ -115,7 +143,9 @@ export function CreateZoneModal({ onClose }: CreateZoneModalProps) {
 
         <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={onClose}>Create Zone</Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Saving...' : isEdit ? 'Update Zone' : 'Create Zone'}
+          </Button>
         </div>
       </div>
     </div>
