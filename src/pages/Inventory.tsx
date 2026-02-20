@@ -4,10 +4,13 @@ import { WMSLayout } from '@/components/wms/WMSLayout';
 import { PageHeader } from '@/components/wms/PageHeader';
 import { StatusBadge } from '@/components/wms/StatusBadge';
 import { DataStateWrapper } from '@/components/wms/DataStateWrapper';
+import { DeleteConfirmDialog } from '@/components/wms/DeleteConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Plus, Search, SlidersHorizontal, DollarSign, AlertTriangle, ArrowLeftRight } from 'lucide-react';
+import { Plus, Search, SlidersHorizontal, DollarSign, AlertTriangle, ArrowLeftRight, Pencil, Trash2 } from 'lucide-react';
 import type { Product } from '@/types/wms';
+import { useToast } from '@/hooks/use-toast';
+import * as crud from '@/services/crudService';
 
 function getCategoryClass(category: string) {
   if (category === 'Electronics') return 'text-accent-foreground bg-accent';
@@ -20,6 +23,9 @@ export default function Inventory() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { toast } = useToast();
 
   // Summary state — will come from API
   const [totalValue, setTotalValue] = useState<string>('—');
@@ -33,6 +39,26 @@ export default function Inventory() {
     p.name.toLowerCase().includes(search.toLowerCase()) ||
     p.sku.toLowerCase().includes(search.toLowerCase())
   );
+
+  const handleEdit = (product: Product) => {
+    // TODO: Open edit modal or navigate to edit page
+    console.log('[Inventory] Edit product', product.id);
+    toast({ title: 'Edit mode not yet connected to backend' });
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await crud.deleteProduct(deleteTarget.id);
+      setProducts(prev => prev.filter(p => p.id !== deleteTarget.id));
+      toast({ title: `${deleteTarget.name} deleted` });
+      setDeleteTarget(null);
+    } catch {
+      toast({ title: 'Error deleting product', variant: 'destructive' });
+    }
+    setIsDeleting(false);
+  };
 
   return (
     <WMSLayout>
@@ -76,7 +102,7 @@ export default function Inventory() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    {['SKU', 'Product Name', 'Category', 'Purchase Price', 'Sale Price', 'Status'].map(h => (
+                    {['SKU', 'Product Name', 'Category', 'Purchase Price', 'Sale Price', 'Status', 'Actions'].map(h => (
                       <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5 first:pl-5">{h}</th>
                     ))}
                   </tr>
@@ -94,6 +120,12 @@ export default function Inventory() {
                       <td className="px-5 py-4 text-sm text-foreground">${p.purchasePrice.toFixed(2)}</td>
                       <td className="px-5 py-4 text-sm font-semibold text-foreground">${p.salePrice.toFixed(2)}</td>
                       <td className="px-5 py-4"><StatusBadge status={p.status} /></td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <button onClick={() => handleEdit(p)} className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
+                          <button onClick={() => setDeleteTarget(p)} className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -156,6 +188,16 @@ export default function Inventory() {
           </Card>
         </div>
       </div>
+
+      {deleteTarget && (
+        <DeleteConfirmDialog
+          title={`Delete ${deleteTarget.name}?`}
+          description={`This will permanently remove "${deleteTarget.name}" (${deleteTarget.sku}) from inventory.`}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+          isDeleting={isDeleting}
+        />
+      )}
     </WMSLayout>
   );
 }

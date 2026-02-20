@@ -2,25 +2,54 @@ import { useState } from 'react';
 import { WMSLayout } from '@/components/wms/WMSLayout';
 import { PageHeader } from '@/components/wms/PageHeader';
 import { DataStateWrapper } from '@/components/wms/DataStateWrapper';
+import { DeleteConfirmDialog } from '@/components/wms/DeleteConfirmDialog';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowDownToLine, Plus } from 'lucide-react';
+import { ArrowDownToLine, Plus, Trash2 } from 'lucide-react';
 import { StatusBadge } from '@/components/wms/StatusBadge';
-
-interface StockInEntry {
-  id: string;
-  product: string;
-  sku: string;
-  warehouse: string;
-  qty: number;
-  date: string;
-  status: 'Active' | 'Inactive';
-}
+import { useToast } from '@/hooks/use-toast';
+import * as crud from '@/services/crudService';
+import type { StockEntry } from '@/services/crudService';
 
 export default function StockIn() {
-  const [entries, setEntries] = useState<StockInEntry[]>([]);
+  const [entries, setEntries] = useState<StockEntry[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<StockEntry | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const { toast } = useToast();
+
+  const handleCreate = async () => {
+    // TODO: Open a form modal for creating stock-in entry
+    try {
+      const entry = await crud.createStockIn({
+        product: '',
+        sku: '',
+        warehouse: '',
+        qty: 0,
+        date: new Date().toISOString().slice(0, 10),
+        status: 'Active',
+      });
+      setEntries(prev => [...prev, entry]);
+      toast({ title: 'Stock-in entry created' });
+    } catch {
+      toast({ title: 'Error creating entry', variant: 'destructive' });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await crud.deleteStockIn(deleteTarget.id);
+      setEntries(prev => prev.filter(e => e.id !== deleteTarget.id));
+      toast({ title: 'Entry deleted' });
+      setDeleteTarget(null);
+    } catch {
+      toast({ title: 'Error deleting entry', variant: 'destructive' });
+    }
+    setIsDeleting(false);
+  };
 
   return (
     <WMSLayout>
@@ -29,7 +58,7 @@ export default function StockIn() {
         subtitle="Record incoming inventory into the warehouse."
         breadcrumb="Warehouse Management / Stock In"
         action={
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={handleCreate}>
             <Plus className="w-4 h-4" />
             New Stock In Entry
           </Button>
@@ -42,7 +71,7 @@ export default function StockIn() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-border">
-                    {['Reference', 'Product', 'SKU', 'Warehouse', 'Qty Received', 'Date', 'Status'].map(h => (
+                    {['Reference', 'Product', 'SKU', 'Warehouse', 'Qty Received', 'Date', 'Status', ''].map(h => (
                       <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5">{h}</th>
                     ))}
                   </tr>
@@ -51,7 +80,7 @@ export default function StockIn() {
                   {entries.map(r => (
                     <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
                       <td className="px-5 py-3.5 text-sm font-mono font-medium text-primary flex items-center gap-2">
-                        <ArrowDownToLine className="w-3.5 h-3.5 text-green-500" />{r.id}
+                        <ArrowDownToLine className="w-3.5 h-3.5 text-green-500" />{r.id.slice(0, 8)}
                       </td>
                       <td className="px-5 py-3.5 text-sm font-medium text-foreground">{r.product}</td>
                       <td className="px-5 py-3.5 text-sm text-muted-foreground font-mono">{r.sku}</td>
@@ -59,6 +88,11 @@ export default function StockIn() {
                       <td className="px-5 py-3.5 text-sm font-semibold text-foreground">{r.qty} units</td>
                       <td className="px-5 py-3.5 text-sm text-muted-foreground">{r.date}</td>
                       <td className="px-5 py-3.5"><StatusBadge status={r.status} /></td>
+                      <td className="px-5 py-3.5">
+                        <button onClick={() => setDeleteTarget(r)} className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -67,6 +101,16 @@ export default function StockIn() {
           </CardContent>
         </Card>
       </div>
+
+      {deleteTarget && (
+        <DeleteConfirmDialog
+          title="Delete stock-in entry?"
+          description={`This will permanently remove entry "${deleteTarget.id.slice(0, 8)}" from the records.`}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+          isDeleting={isDeleting}
+        />
+      )}
     </WMSLayout>
   );
 }

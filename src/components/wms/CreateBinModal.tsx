@@ -1,27 +1,56 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
-import { shelves } from '@/data/mockData';
+import type { Bin, Shelf } from '@/types/wms';
 
 interface CreateBinModalProps {
   onClose: () => void;
+  onSave: (data: Partial<Bin>) => void;
+  initialData?: Bin | null;
+  isSaving?: boolean;
+  shelves?: Shelf[];
 }
 
-export function CreateBinModal({ onClose }: CreateBinModalProps) {
+export function CreateBinModal({ onClose, onSave, initialData, isSaving, shelves = [] }: CreateBinModalProps) {
+  const isEdit = !!initialData;
   const [form, setForm] = useState({
     shelf: '', code: '', type: 'PICKING', pickOrder: '100',
     maxQty: '0', maxWeight: '0.00', maxVolume: '0.00',
     hazardous: false, equipmentRestriction: 'No Restriction', status: 'Active',
   });
+
+  useEffect(() => {
+    if (initialData) {
+      setForm(f => ({
+        ...f,
+        shelf: initialData.shelfCode || '',
+        code: initialData.code || '',
+        type: initialData.type || 'PICKING',
+        maxQty: String(initialData.capacity || 0),
+        status: initialData.status || 'Active',
+      }));
+    }
+  }, [initialData]);
+
   const set = (k: string, v: string | boolean) => setForm(f => ({ ...f, [k]: v }));
+
+  const handleSave = () => {
+    onSave({
+      shelfCode: form.shelf,
+      code: form.code,
+      type: form.type,
+      capacity: Number(form.maxQty),
+      status: form.status as Bin['status'],
+    });
+  };
 
   return (
     <div className="fixed inset-0 bg-foreground/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg border border-border max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-border sticky top-0 bg-card">
           <div>
-            <h2 className="text-lg font-bold text-foreground">Create New Bin</h2>
-            <p className="text-xs text-muted-foreground mt-0.5">Define storage parameters and location for a new warehouse bin.</p>
+            <h2 className="text-lg font-bold text-foreground">{isEdit ? 'Edit Bin' : 'Create New Bin'}</h2>
+            <p className="text-xs text-muted-foreground mt-0.5">{isEdit ? 'Update bin parameters.' : 'Define storage parameters and location for a new warehouse bin.'}</p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-muted rounded-md transition-colors">
             <X className="w-4 h-4 text-muted-foreground" />
@@ -119,8 +148,10 @@ export function CreateBinModal({ onClose }: CreateBinModalProps) {
         </div>
 
         <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
-          <Button variant="outline" onClick={onClose}>Reset Form</Button>
-          <Button onClick={onClose}>Confirm and Create Bin</Button>
+          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? 'Saving...' : isEdit ? 'Update Bin' : 'Confirm and Create Bin'}
+          </Button>
         </div>
       </div>
     </div>
