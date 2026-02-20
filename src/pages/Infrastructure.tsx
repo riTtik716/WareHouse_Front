@@ -3,10 +3,11 @@ import { useSearchParams } from 'react-router-dom';
 import { WMSLayout } from '@/components/wms/WMSLayout';
 import { PageHeader } from '@/components/wms/PageHeader';
 import { StatusBadge } from '@/components/wms/StatusBadge';
+import { DataStateWrapper } from '@/components/wms/DataStateWrapper';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Plus, Search, SlidersHorizontal, Download, Pencil, Trash2, GitBranch, Sparkles, Activity } from 'lucide-react';
-import { warehouses, zones, racks, shelves, bins } from '@/data/mockData';
+import type { Warehouse, Zone, Rack, Shelf, Bin } from '@/types/wms';
 import { CreateWarehouseModal } from '@/components/wms/CreateWarehouseModal';
 import { CreateZoneModal } from '@/components/wms/CreateZoneModal';
 import { CreateRackModal } from '@/components/wms/CreateRackModal';
@@ -34,6 +35,15 @@ export default function Infrastructure() {
   const [activeTab, setActiveTab] = useState<InfraTab>('warehouses');
   const [showCreate, setShowCreate] = useState(false);
   const [search, setSearch] = useState('');
+
+  // Data states — ready for API integration
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
+  const [racks, setRacks] = useState<Rack[]>([]);
+  const [shelves, setShelves] = useState<Shelf[]>([]);
+  const [bins, setBins] = useState<Bin[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const tab = searchParams.get('tab') as InfraTab;
@@ -111,12 +121,12 @@ export default function Infrastructure() {
         <Card className="shadow-none border-border">
           <CardContent className="p-0">
             {activeTab === 'warehouses' && (
-              <WarehousesTable search={search} />
+              <WarehousesTable data={warehouses} search={search} isLoading={isLoading} error={error} />
             )}
-            {activeTab === 'zones' && <ZonesTable search={search} />}
-            {activeTab === 'racks' && <RacksTable search={search} />}
-            {activeTab === 'shelves' && <ShelvesTable search={search} />}
-            {activeTab === 'bins' && <BinsTable search={search} />}
+            {activeTab === 'zones' && <ZonesTable data={zones} search={search} isLoading={isLoading} error={error} />}
+            {activeTab === 'racks' && <RacksTable data={racks} search={search} isLoading={isLoading} error={error} />}
+            {activeTab === 'shelves' && <ShelvesTable data={shelves} search={search} isLoading={isLoading} error={error} />}
+            {activeTab === 'bins' && <BinsTable data={bins} search={search} isLoading={isLoading} error={error} />}
           </CardContent>
         </Card>
 
@@ -147,232 +157,249 @@ export default function Infrastructure() {
   );
 }
 
-function WarehousesTable({ search }: { search: string }) {
-  const data = warehouses.filter(w =>
+interface TableProps<T> {
+  data: T[];
+  search: string;
+  isLoading: boolean;
+  error: string | null;
+}
+
+function WarehousesTable({ data: allData, search, isLoading, error }: TableProps<Warehouse>) {
+  const data = allData.filter(w =>
     w.name.toLowerCase().includes(search.toLowerCase()) ||
     w.code.toLowerCase().includes(search.toLowerCase())
   );
   return (
-    <table className="w-full">
-      <thead>
-        <tr className="border-b border-border">
-          {['Warehouse Code', 'Name', 'Type', 'Zones', 'Status', 'Actions'].map(h => (
-            <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5">{h}</th>
+    <DataStateWrapper isLoading={isLoading} error={error} isEmpty={data.length === 0} emptyTitle="No warehouses" emptyDescription="Create your first warehouse to get started.">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border">
+            {['Warehouse Code', 'Name', 'Type', 'Zones', 'Status', 'Actions'].map(h => (
+              <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(w => (
+            <tr key={w.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+              <td className="px-5 py-3.5 text-sm font-medium text-primary">{w.code}</td>
+              <td className="px-5 py-3.5 text-sm font-medium text-foreground">{w.name}</td>
+              <td className="px-5 py-3.5 text-sm text-muted-foreground">{w.type}</td>
+              <td className="px-5 py-3.5 text-sm text-muted-foreground">{w.zonesCount} Zones</td>
+              <td className="px-5 py-3.5"><StatusBadge status={w.status} /></td>
+              <td className="px-5 py-3.5">
+                <div className="flex items-center gap-2">
+                  <button className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
+                  <button className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              </td>
+            </tr>
           ))}
-        </tr>
-      </thead>
-      <tbody>
-        {data.map(w => (
-          <tr key={w.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-            <td className="px-5 py-3.5 text-sm font-medium text-primary">{w.code}</td>
-            <td className="px-5 py-3.5 text-sm font-medium text-foreground">{w.name}</td>
-            <td className="px-5 py-3.5 text-sm text-muted-foreground">{w.type}</td>
-            <td className="px-5 py-3.5 text-sm text-muted-foreground">{w.zonesCount} Zones</td>
-            <td className="px-5 py-3.5"><StatusBadge status={w.status} /></td>
-            <td className="px-5 py-3.5">
-              <div className="flex items-center gap-2">
-                <button className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
-                <button className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-border">
+            <td colSpan={6} className="px-5 py-3.5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">Showing {data.length} warehouses</p>
+                <Pagination />
               </div>
             </td>
           </tr>
-        ))}
-      </tbody>
-      <tfoot>
-        <tr className="border-t border-border">
-          <td colSpan={6} className="px-5 py-3.5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Showing 1 to {data.length} of 24 warehouses</p>
-              <Pagination />
-            </div>
-          </td>
-        </tr>
-      </tfoot>
-    </table>
+        </tfoot>
+      </table>
+    </DataStateWrapper>
   );
 }
 
-function ZonesTable({ search }: { search: string }) {
-  const data = zones.filter(z =>
+function ZonesTable({ data: allData, search, isLoading, error }: TableProps<Zone>) {
+  const data = allData.filter(z =>
     z.name.toLowerCase().includes(search.toLowerCase()) ||
     z.warehouseCode.toLowerCase().includes(search.toLowerCase())
   );
   return (
-    <table className="w-full">
-      <thead>
-        <tr className="border-b border-border">
-          {['Zone Name', 'Warehouse', 'Type', 'Pick Priority', 'Put Away', 'Status', 'Actions'].map(h => (
-            <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5">{h}</th>
+    <DataStateWrapper isLoading={isLoading} error={error} isEmpty={data.length === 0} emptyTitle="No zones" emptyDescription="Create zones within a warehouse to organize storage.">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border">
+            {['Zone Name', 'Warehouse', 'Type', 'Pick Priority', 'Put Away', 'Status', 'Actions'].map(h => (
+              <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(z => (
+            <tr key={z.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+              <td className="px-5 py-3.5 text-sm font-mono font-medium text-primary">{z.name}</td>
+              <td className="px-5 py-3.5 text-sm text-muted-foreground">{z.warehouseCode}</td>
+              <td className="px-5 py-3.5 text-sm text-muted-foreground">{z.type}</td>
+              <td className="px-5 py-3.5 text-sm text-foreground text-center">{z.pickPriority}</td>
+              <td className="px-5 py-3.5 text-sm text-foreground text-center">{z.putAwayPriority}</td>
+              <td className="px-5 py-3.5"><StatusBadge status={z.status} /></td>
+              <td className="px-5 py-3.5">
+                <div className="flex items-center gap-2">
+                  <button className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
+                  <button className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              </td>
+            </tr>
           ))}
-        </tr>
-      </thead>
-      <tbody>
-        {data.map(z => (
-          <tr key={z.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-            <td className="px-5 py-3.5 text-sm font-mono font-medium text-primary">{z.name}</td>
-            <td className="px-5 py-3.5 text-sm text-muted-foreground">{z.warehouseCode}</td>
-            <td className="px-5 py-3.5 text-sm text-muted-foreground">{z.type}</td>
-            <td className="px-5 py-3.5 text-sm text-foreground text-center">{z.pickPriority}</td>
-            <td className="px-5 py-3.5 text-sm text-foreground text-center">{z.putAwayPriority}</td>
-            <td className="px-5 py-3.5"><StatusBadge status={z.status} /></td>
-            <td className="px-5 py-3.5">
-              <div className="flex items-center gap-2">
-                <button className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
-                <button className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-border">
+            <td colSpan={7} className="px-5 py-3.5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">Showing {data.length} zones</p>
+                <Pagination />
               </div>
             </td>
           </tr>
-        ))}
-      </tbody>
-      <tfoot>
-        <tr className="border-t border-border">
-          <td colSpan={7} className="px-5 py-3.5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Showing 1 to {data.length} of 12 zones</p>
-              <Pagination />
-            </div>
-          </td>
-        </tr>
-      </tfoot>
-    </table>
+        </tfoot>
+      </table>
+    </DataStateWrapper>
   );
 }
 
-function RacksTable({ search }: { search: string }) {
-  const data = racks.filter(r =>
+function RacksTable({ data: allData, search, isLoading, error }: TableProps<Rack>) {
+  const data = allData.filter(r =>
     r.code.toLowerCase().includes(search.toLowerCase()) ||
     r.zoneName.toLowerCase().includes(search.toLowerCase())
   );
   return (
-    <table className="w-full">
-      <thead>
-        <tr className="border-b border-border">
-          {['Rack Code', 'Zone Name', 'Rack Type', 'Aisle', 'Pick Sequence', 'Status', 'Actions'].map(h => (
-            <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5">{h}</th>
+    <DataStateWrapper isLoading={isLoading} error={error} isEmpty={data.length === 0} emptyTitle="No racks" emptyDescription="Add racks to zones to define storage locations.">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border">
+            {['Rack Code', 'Zone Name', 'Rack Type', 'Aisle', 'Pick Sequence', 'Status', 'Actions'].map(h => (
+              <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(r => (
+            <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+              <td className="px-5 py-3.5 text-sm font-mono font-medium text-primary">{r.code}</td>
+              <td className="px-5 py-3.5 text-sm text-foreground">{r.zoneName}</td>
+              <td className="px-5 py-3.5 text-sm text-muted-foreground">{r.type}</td>
+              <td className="px-5 py-3.5 text-sm text-muted-foreground">{r.aisle}</td>
+              <td className="px-5 py-3.5 text-sm text-foreground">{r.pickSequence}</td>
+              <td className="px-5 py-3.5"><StatusBadge status={r.status} /></td>
+              <td className="px-5 py-3.5">
+                <div className="flex items-center gap-2">
+                  <button className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
+                  <button className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              </td>
+            </tr>
           ))}
-        </tr>
-      </thead>
-      <tbody>
-        {data.map(r => (
-          <tr key={r.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-            <td className="px-5 py-3.5 text-sm font-mono font-medium text-primary">{r.code}</td>
-            <td className="px-5 py-3.5 text-sm text-foreground">{r.zoneName}</td>
-            <td className="px-5 py-3.5 text-sm text-muted-foreground">{r.type}</td>
-            <td className="px-5 py-3.5 text-sm text-muted-foreground">{r.aisle}</td>
-            <td className="px-5 py-3.5 text-sm text-foreground">{r.pickSequence}</td>
-            <td className="px-5 py-3.5"><StatusBadge status={r.status} /></td>
-            <td className="px-5 py-3.5">
-              <div className="flex items-center gap-2">
-                <button className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
-                <button className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-border">
+            <td colSpan={7} className="px-5 py-3.5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">Showing {data.length} racks</p>
+                <Pagination />
               </div>
             </td>
           </tr>
-        ))}
-      </tbody>
-      <tfoot>
-        <tr className="border-t border-border">
-          <td colSpan={7} className="px-5 py-3.5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Showing 1 to {data.length} of 128 racks</p>
-              <Pagination />
-            </div>
-          </td>
-        </tr>
-      </tfoot>
-    </table>
+        </tfoot>
+      </table>
+    </DataStateWrapper>
   );
 }
 
-function ShelvesTable({ search }: { search: string }) {
-  const data = shelves.filter(s =>
+function ShelvesTable({ data: allData, search, isLoading, error }: TableProps<Shelf>) {
+  const data = allData.filter(s =>
     s.code.toLowerCase().includes(search.toLowerCase()) ||
     s.rackCode.toLowerCase().includes(search.toLowerCase())
   );
   return (
-    <table className="w-full">
-      <thead>
-        <tr className="border-b border-border">
-          {['Shelf Code', 'Rack Code', 'Level', 'Pick Sequence', 'Max Weight', 'Status', 'Actions'].map(h => (
-            <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5">{h}</th>
+    <DataStateWrapper isLoading={isLoading} error={error} isEmpty={data.length === 0} emptyTitle="No shelves" emptyDescription="Add shelves to racks to define vertical storage levels.">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border">
+            {['Shelf Code', 'Rack Code', 'Level', 'Pick Sequence', 'Max Weight', 'Status', 'Actions'].map(h => (
+              <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(s => (
+            <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+              <td className="px-5 py-3.5 text-sm font-mono font-medium text-primary">{s.code}</td>
+              <td className="px-5 py-3.5 text-sm text-muted-foreground">{s.rackCode}</td>
+              <td className="px-5 py-3.5 text-sm text-foreground">Level {s.levelNumber}</td>
+              <td className="px-5 py-3.5 text-sm text-foreground">{s.pickSequence}</td>
+              <td className="px-5 py-3.5 text-sm text-foreground">{s.maxWeight} kg</td>
+              <td className="px-5 py-3.5"><StatusBadge status={s.status} /></td>
+              <td className="px-5 py-3.5">
+                <div className="flex items-center gap-2">
+                  <button className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
+                  <button className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              </td>
+            </tr>
           ))}
-        </tr>
-      </thead>
-      <tbody>
-        {data.map(s => (
-          <tr key={s.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-            <td className="px-5 py-3.5 text-sm font-mono font-medium text-primary">{s.code}</td>
-            <td className="px-5 py-3.5 text-sm text-muted-foreground">{s.rackCode}</td>
-            <td className="px-5 py-3.5 text-sm text-foreground">Level {s.levelNumber}</td>
-            <td className="px-5 py-3.5 text-sm text-foreground">{s.pickSequence}</td>
-            <td className="px-5 py-3.5 text-sm text-foreground">{s.maxWeight} kg</td>
-            <td className="px-5 py-3.5"><StatusBadge status={s.status} /></td>
-            <td className="px-5 py-3.5">
-              <div className="flex items-center gap-2">
-                <button className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
-                <button className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-border">
+            <td colSpan={7} className="px-5 py-3.5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">Showing {data.length} shelves</p>
+                <Pagination />
               </div>
             </td>
           </tr>
-        ))}
-      </tbody>
-      <tfoot>
-        <tr className="border-t border-border">
-          <td colSpan={7} className="px-5 py-3.5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Showing 1 to {data.length} of 24 shelves</p>
-              <Pagination />
-            </div>
-          </td>
-        </tr>
-      </tfoot>
-    </table>
+        </tfoot>
+      </table>
+    </DataStateWrapper>
   );
 }
 
-function BinsTable({ search }: { search: string }) {
-  const data = bins.filter(b =>
+function BinsTable({ data: allData, search, isLoading, error }: TableProps<Bin>) {
+  const data = allData.filter(b =>
     b.code.toLowerCase().includes(search.toLowerCase()) ||
     b.shelfCode.toLowerCase().includes(search.toLowerCase())
   );
   return (
-    <table className="w-full">
-      <thead>
-        <tr className="border-b border-border">
-          {['Bin Code', 'Shelf Code', 'Bin Type', 'Capacity', 'Availability', 'Status', 'Actions'].map(h => (
-            <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5">{h}</th>
+    <DataStateWrapper isLoading={isLoading} error={error} isEmpty={data.length === 0} emptyTitle="No bins" emptyDescription="Create bins on shelves to define individual storage slots.">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border">
+            {['Bin Code', 'Shelf Code', 'Bin Type', 'Capacity', 'Availability', 'Status', 'Actions'].map(h => (
+              <th key={h} className="text-left text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-5 py-3.5">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map(b => (
+            <tr key={b.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+              <td className="px-5 py-3.5 text-sm font-mono font-medium text-primary">{b.code}</td>
+              <td className="px-5 py-3.5 text-sm text-muted-foreground">{b.shelfCode}</td>
+              <td className="px-5 py-3.5 text-sm text-muted-foreground">{b.type}</td>
+              <td className="px-5 py-3.5 text-sm text-foreground">{b.capacity} units</td>
+              <td className="px-5 py-3.5"><StatusBadge status={b.qty} /></td>
+              <td className="px-5 py-3.5"><StatusBadge status={b.status} /></td>
+              <td className="px-5 py-3.5">
+                <div className="flex items-center gap-2">
+                  <button className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
+                  <button className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              </td>
+            </tr>
           ))}
-        </tr>
-      </thead>
-      <tbody>
-        {data.map(b => (
-          <tr key={b.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-            <td className="px-5 py-3.5 text-sm font-mono font-medium text-primary">{b.code}</td>
-            <td className="px-5 py-3.5 text-sm text-muted-foreground">{b.shelfCode}</td>
-            <td className="px-5 py-3.5 text-sm text-muted-foreground">{b.type}</td>
-            <td className="px-5 py-3.5 text-sm text-foreground">{b.capacity} units</td>
-            <td className="px-5 py-3.5"><StatusBadge status={b.qty} /></td>
-            <td className="px-5 py-3.5"><StatusBadge status={b.status} /></td>
-            <td className="px-5 py-3.5">
-              <div className="flex items-center gap-2">
-                <button className="p-1.5 hover:bg-muted rounded-md transition-colors text-muted-foreground hover:text-foreground"><Pencil className="w-3.5 h-3.5" /></button>
-                <button className="p-1.5 hover:bg-destructive/10 rounded-md transition-colors text-muted-foreground hover:text-destructive"><Trash2 className="w-3.5 h-3.5" /></button>
+        </tbody>
+        <tfoot>
+          <tr className="border-t border-border">
+            <td colSpan={7} className="px-5 py-3.5">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">Showing {data.length} bins</p>
+                <Pagination />
               </div>
             </td>
           </tr>
-        ))}
-      </tbody>
-      <tfoot>
-        <tr className="border-t border-border">
-          <td colSpan={7} className="px-5 py-3.5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">Showing 1 to {data.length} of 142 bins</p>
-              <Pagination />
-            </div>
-          </td>
-        </tr>
-      </tfoot>
-    </table>
+        </tfoot>
+      </table>
+    </DataStateWrapper>
   );
 }
 
@@ -381,8 +408,6 @@ function Pagination() {
     <div className="flex items-center gap-1">
       <button className="px-2.5 py-1.5 text-xs border border-border rounded-md hover:bg-muted disabled:opacity-40">‹</button>
       <button className="px-2.5 py-1.5 text-xs bg-primary text-primary-foreground rounded-md">1</button>
-      <button className="px-2.5 py-1.5 text-xs border border-border rounded-md hover:bg-muted">2</button>
-      <button className="px-2.5 py-1.5 text-xs border border-border rounded-md hover:bg-muted">3</button>
       <button className="px-2.5 py-1.5 text-xs border border-border rounded-md hover:bg-muted">›</button>
     </div>
   );
